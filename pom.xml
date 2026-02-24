@@ -32,6 +32,7 @@
 	<modules>
 		<module>ecoswap-platform/config-server</module>
 		<module>ecoswap-platform/service-discovery</module>
+		<module>ecoswap-platform/api-gateway</module>
 	</modules>
 	<dependencies>
 		<dependency>
