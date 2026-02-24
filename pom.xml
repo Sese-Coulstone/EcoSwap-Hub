@@ -31,6 +31,7 @@
 	</properties>
 	<modules>
 		<module>ecoswap-platform/config-server</module>
+		<module>ecoswap-platform/service-discovery</module>
 	</modules>
 	<dependencies>
 		<dependency>
