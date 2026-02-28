@@ -1,7 +1,8 @@
-version: '3.9'
-
 services:
   # ==================== DATABASES ====================
+  # NOTE: PostgreSQL 17+ requires mounting to /var/lib/postgresql (not /data subdirectory)
+  # This allows pg_upgrade compatibility. See: https://github.com/docker-library/postgres/pull/1259
+
   postgres-user:
     image: postgres:17
     container_name: postgres-user
@@ -17,10 +18,11 @@ services:
     networks:
       - ecoswap-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ecoswap_user -d user_db"]
+      test: ["CMD-SHELL", "pg_isready -U ${USER_DB_USER:-ecoswap_user} -d ${USER_DB_NAME:-user_db}"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
 
   postgres-item:
     image: postgres:17
@@ -37,10 +39,11 @@ services:
     networks:
       - ecoswap-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ecoswap_item -d item_db"]
+      test: ["CMD-SHELL", "pg_isready -U ${ITEM_DB_USER:-ecoswap_item} -d ${ITEM_DB_NAME:-item_db}"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
 
   postgres-exchange:
     image: postgres:17
@@ -57,10 +60,11 @@ services:
     networks:
       - ecoswap-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ecoswap_exchange -d exchange_db"]
+      test: ["CMD-SHELL", "pg_isready -U ${EXCHANGE_DB_USER:-ecoswap_exchange} -d ${EXCHANGE_DB_NAME:-exchange_db}"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
 
   # ==================== KEYCLOAK ====================
   postgres-keycloak:
@@ -76,10 +80,11 @@ services:
     networks:
       - ecoswap-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U keycloak -d keycloak"]
+      test: ["CMD-SHELL", "pg_isready -U ${KC_DB_USER:-keycloak} -d keycloak"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
 
   keycloak:
     image: quay.io/keycloak/keycloak:26.4.5
@@ -102,6 +107,81 @@ services:
         condition: service_healthy
     networks:
       - ecoswap-network
+
+  # ==================== PLATFORM SERVICES ====================
+  config-server:
+    image: ecoswap/config-server:latest
+    build:
+      context: ../../
+      dockerfile: ecoswap-platform/config-server/Dockerfile
+    container_name: config-server
+    restart: unless-stopped
+    ports:
+      - "8888:8888"
+    networks:
+      - ecoswap-network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8888/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  service-discovery:
+    image: ecoswap/service-discovery:latest
+    build:
+      context: ../../
+      dockerfile: ecoswap-platform/service-discovery/Dockerfile
+    container_name: service-discovery
+    restart: unless-stopped
+    ports:
+      - "8761:8761"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      CONFIG_SERVER_URL: http://config-server:8888
+      EUREKA_HOSTNAME: service-discovery
+      EUREKA_PREFER_IP: "true"
+    depends_on:
+      config-server:
+        condition: service_healthy
+    networks:
+      - ecoswap-network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8761/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  api-gateway:
+    image: ecoswap/api-gateway:latest
+    build:
+      context: ../../
+      dockerfile: ecoswap-platform/api-gateway/Dockerfile
+    container_name: api-gateway
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      CONFIG_SERVER_URL: http://config-server:8888
+      EUREKA_URL: http://service-discovery:8761/eureka/
+      KEYCLOAK_JWK_URI: http://keycloak:8080/realms/ecoswap/protocol/openid-connect/certs
+      KEYCLOAK_ISSUER_URI: http://keycloak:8080/realms/ecoswap
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+    depends_on:
+      service-discovery:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+    networks:
+      - ecoswap-network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9000/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
 
 
 volumes:

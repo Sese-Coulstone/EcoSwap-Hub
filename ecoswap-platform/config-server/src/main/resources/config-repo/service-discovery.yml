@@ -1,11 +1,13 @@
 server:
-  port: 8761
+  port: ${SERVER_PORT:8761}
 
 eureka:
   instance:
-    hostname: localhost
-    prefer-ip-address: false
+    hostname: ${EUREKA_HOSTNAME:localhost}
+    # In Docker/K8s, prefer IP address for proper container communication
+    prefer-ip-address: ${EUREKA_PREFER_IP:false}
   client:
+    # As the Eureka SERVER, don't try to fetch or register with another Eureka
     fetch-registry: false
     register-with-eureka: false
     service-url:
