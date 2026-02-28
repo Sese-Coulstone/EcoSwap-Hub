@@ -6,6 +6,14 @@ spring:
           jwk-set-uri: ${KEYCLOAK_JWK_URI:http://localhost:8080/realms/ecoswap/protocol/openid-connect/certs}
           issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8080/realms/ecoswap}
 
+  cloud:
+    gateway:
+      routes:
+        - id: user-service
+          uri: lb://USER-SERVICE
+          predicates:
+            - Path=/api/users/**
+
 server:
   port: ${SERVER_PORT:9000}
 
