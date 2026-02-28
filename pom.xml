@@ -33,6 +33,7 @@
 		<module>ecoswap-platform/config-server</module>
 		<module>ecoswap-platform/service-discovery</module>
 		<module>ecoswap-platform/api-gateway</module>
+		<module>ecoswap-shared/shared-service/</module>
 	</modules>
 	<dependencies>
 		<dependency>

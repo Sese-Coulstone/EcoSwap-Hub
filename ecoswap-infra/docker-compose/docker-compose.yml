@@ -1,0 +1,115 @@
+version: '3.9'
+
+services:
+  # ==================== DATABASES ====================
+  postgres-user:
+    image: postgres:17
+    container_name: postgres-user
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${USER_DB_USER:-ecoswap_user}
+      POSTGRES_PASSWORD: ${USER_DB_PASSWORD:-password}
+      POSTGRES_DB: ${USER_DB_NAME:-user_db}
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres-user-data:/var/lib/postgresql
+    networks:
+      - ecoswap-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ecoswap_user -d user_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres-item:
+    image: postgres:17
+    container_name: postgres-item
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${ITEM_DB_USER:-ecoswap_item}
+      POSTGRES_PASSWORD: ${ITEM_DB_PASSWORD:-password}
+      POSTGRES_DB: ${ITEM_DB_NAME:-item_db}
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres-item-data:/var/lib/postgresql
+    networks:
+      - ecoswap-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ecoswap_item -d item_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres-exchange:
+    image: postgres:17
+    container_name: postgres-exchange
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${EXCHANGE_DB_USER:-ecoswap_exchange}
+      POSTGRES_PASSWORD: ${EXCHANGE_DB_PASSWORD:-password}
+      POSTGRES_DB: ${EXCHANGE_DB_NAME:-exchange_db}
+    ports:
+      - "5435:5432"
+    volumes:
+      - postgres-exchange-data:/var/lib/postgresql
+    networks:
+      - ecoswap-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ecoswap_exchange -d exchange_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==================== KEYCLOAK ====================
+  postgres-keycloak:
+    image: postgres:17
+    container_name: postgres-keycloak
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${KC_DB_USER:-keycloak}
+      POSTGRES_PASSWORD: ${KC_DB_PASSWORD:-password}
+      POSTGRES_DB: keycloak
+    volumes:
+      - postgres-keycloak-data:/var/lib/postgresql
+    networks:
+      - ecoswap-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak -d keycloak"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.4.5
+    container_name: keycloak
+    restart: unless-stopped
+    command: start-dev --import-realm
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres-keycloak:5432/keycloak
+      KC_DB_USERNAME: ${KC_DB_USER:-keycloak}
+      KC_DB_PASSWORD: ${KC_DB_PASSWORD:-password}
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+    ports:
+      - "8080:8080"
+    volumes:
+      - ../keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+    depends_on:
+      postgres-keycloak:
+        condition: service_healthy
+    networks:
+      - ecoswap-network
+
+
+volumes:
+  postgres-user-data:
+  postgres-item-data:
+  postgres-exchange-data:
+  postgres-keycloak-data:
+
+networks:
+  ecoswap-network:
+    driver: bridge

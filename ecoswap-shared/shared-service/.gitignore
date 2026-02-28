@@ -31,7 +31,3 @@ build/
 
 ### VS Code ###
 .vscode/
-
-# Environment Variables & Secrets
-.env
-*.env
